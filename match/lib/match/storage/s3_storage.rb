@@ -15,6 +15,8 @@ module Match
       attr_reader :s3_region
       attr_reader :s3_client
       attr_reader :s3_object_prefix
+      attr_reader :s3_endpoint
+      attr_reader :s3_force_path_style
       attr_reader :readonly
       attr_reader :username
       attr_reader :team_id
@@ -28,6 +30,8 @@ module Match
         s3_secret_access_key = params[:s3_secret_access_key]
         s3_bucket = params[:s3_bucket]
         s3_object_prefix = params[:s3_object_prefix]
+        s3_endpoint = params[:s3_endpoint]
+        s3_force_path_style = params[:s3_force_path_style]
 
         if params[:git_url].to_s.length > 0
           UI.important("Looks like you still define a `git_url` somewhere, even though")
@@ -42,6 +46,8 @@ module Match
           s3_secret_access_key: s3_secret_access_key,
           s3_bucket: s3_bucket,
           s3_object_prefix: s3_object_prefix,
+          s3_endpoint: s3_endpoint,
+          s3_force_path_style: s3_force_path_style,
           readonly: params[:readonly],
           username: params[:username],
           team_id: params[:team_id],
@@ -56,6 +62,8 @@ module Match
                      s3_secret_access_key: nil,
                      s3_bucket: nil,
                      s3_object_prefix: nil,
+                     s3_endpoint: nil,
+                     s3_force_path_style: false,
                      readonly: nil,
                      username: nil,
                      team_id: nil,
@@ -64,7 +72,7 @@ module Match
                      api_key: nil)
         @s3_bucket = s3_bucket
         @s3_region = s3_region
-        @s3_client = Fastlane::Helper::S3ClientHelper.new(access_key: s3_access_key, secret_access_key: s3_secret_access_key, region: s3_region)
+        @s3_client = Fastlane::Helper::S3ClientHelper.new(access_key: s3_access_key, secret_access_key: s3_secret_access_key, region: s3_region, endpoint: s3_endpoint, force_path_style: s3_force_path_style)
         @s3_object_prefix = s3_object_prefix.to_s
         @readonly = readonly
         @username = username
@@ -101,11 +109,8 @@ module Match
         # No existing working directory, creating a new one now
         self.working_directory = Dir.mktmpdir
 
-        # If team_id is defined, use `:team/` as a prefix (appending it at the end of the `s3_object_prefix` if one provided by the user),
-        # so that we limit the download to only files that are specific to this team, and avoid downloads + decryption of unnecessary files.
-        key_prefix = team_id.nil? ? s3_object_prefix : File.join(s3_object_prefix, team_id, '').delete_prefix('/')
+        s3_client.find_bucket!(s3_bucket).objects(prefix: s3_object_prefix).each do |object|
 
-        s3_client.find_bucket!(s3_bucket).objects(prefix: key_prefix).each do |object|
           # Prevent download if the file path is a directory.
           # We need to check if string ends with "/" instead of using `File.directory?` because
           # the string represent a remote location, not a local file in disk.
@@ -184,7 +189,7 @@ module Match
       end
 
       def strip_s3_object_prefix(object_path)
-        object_path.delete_prefix(s3_object_prefix.to_s).delete_prefix('/')
+        object_path.gsub(/^#{s3_object_prefix}/, "")
       end
 
       def sanitize_file_name(file_name)
