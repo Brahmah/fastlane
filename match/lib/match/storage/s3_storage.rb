@@ -116,9 +116,18 @@ module Match
           # the string represent a remote location, not a local file in disk.
           next if object.key.end_with?("/")
 
-          file_path = strip_s3_object_prefix(object.key) # :s3_object_prefix:team_id/path/to/file
+          file_path = strip_s3_object_prefix(object.key) # After stripping prefix: path/to/file
 
-          # strip s3_prefix from file_path
+          # Ensure the file is placed in the team_id subdirectory locally
+          # to match what prefixed_working_directory expects for certificate lookups
+          current_team_id = currently_used_team_id
+          if current_team_id && current_team_id != "*"
+            # Always place files under team_id subdirectory unless they're already there
+            unless file_path.start_with?("#{current_team_id}/")
+              file_path = File.join(current_team_id, file_path)
+            end
+          end
+
           download_path = File.join(self.working_directory, file_path)
 
           FileUtils.mkdir_p(File.expand_path("..", download_path))
