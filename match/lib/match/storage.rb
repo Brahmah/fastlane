@@ -48,6 +48,8 @@ module Match
               s3_secret_access_key: params[:s3_secret_access_key],
               s3_bucket: params[:s3_bucket],
               s3_object_prefix: params[:s3_object_prefix],
+              s3_endpoint: params[:s3_endpoint],
+              s3_force_path_style: params[:s3_force_path_style],
               readonly: params[:readonly],
               username: params[:username],
               team_id: params[:team_id],
